@@ -100,13 +100,6 @@ local function drawTimeline()
 
     ui.pushDWriteFont(app.font)
 
-    --[[
-    ui.pushDWriteFont(app.font.bold)
-    local timeTextSize = ui.measureDWriteText('00:00', timeSize)
-    ui.dwriteTextAligned(timeText, timeSize, ui.Alignment.End, ui.Alignment.Center, timeTextSize, false, colors.final.elements)
-    ui.popDWriteFont()
-    ]]
-
     local currentHrs, currentMin, currentSec = timeFromSeconds(math.clampN(replay.frame / replayHz, 0, replay_control.getReplayTotalTime()))
     ui.dwriteDrawText(formatTime(currentHrs, currentMin, currentSec), 14, vec2(22, lineStart.y - 10))
 
@@ -208,17 +201,6 @@ local function drawButtons(winHalfSize)
         end
     end
 
-
-
-
-
-
-
-
-
-
-
-
     --seek buttons
     ui.drawImage(app.images.seek, vec2(winHalfSize - 50, 92.5), vec2(winHalfSize - 80, 127.5), colors.buttonActive)
     ui.drawImage(app.images.seek, vec2(winHalfSize + 50, 92.5), vec2(winHalfSize + 80, 127.5), colors.buttonActive)
@@ -236,13 +218,6 @@ local function drawButtons(winHalfSize)
     end
     ]]
 end
-
-
-
-
-
-
-
 
 local filename = ''
 local showTextInput = false
