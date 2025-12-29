@@ -3,7 +3,7 @@
 ## Credits
 
 ### Font
-- [geist](https://vercel.com/font) font under the [SIL Open Font License](https://openfontlicense.org) ( [github.com/vercel/geist-font.git](https://github.com/vercel/geist-font.git) )
+- [geist](https://vercel.com/font) font under the [SIL Open Font License](https://openfontlicense.org)
 
 ### Icons
 Icons are from [The Noun Project](https://thenounproject.com/) all Licensed under [Creative Commons Attribution 3.0](https://creativecommons.org/licenses/by/3.0/)
