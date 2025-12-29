@@ -1,8 +1,6 @@
 
 local replay_control = require 'shared/ui/replay'
 
-ui.setAsynchronousImagesLoading(true)
-
 local settings = ac.storage {
     useCustomFolders = true,
 }
@@ -25,14 +23,12 @@ local colors = {
     buttonActive = rgbm(0.92, 0.91, 0.9, 1),
     buttonDown = rgbm(1, 0.99, 0.98, 1),
     buttonExitHovered = rgbm(0.96, 0.17, 0.23, 1),
-
     timeline = {
         unplayed = rgbm(0.3, 0.3, 0.3, 1),
         played = rgbm(0.9, 0.9, 0.9, 1),
         circle = rgbm(0.9, 0.9, 0.9, 1),
         circleBorder = rgbm(0.95, 0.95, 0.95, 0.95)
     },
-
     stepper = {
         background = rgbm(0.5, 0.5, 0.5, 0.1),
         border = rgbm(1, 1, 1, 0.5)
@@ -45,10 +41,8 @@ local app = {
         exit = '.\\assets\\img\\exit.png',
         seek = '.\\assets\\img\\seek.png',
         save = '.\\assets\\img\\save.png',
-        scaler = '.\\assets\\img\\scaler.png'
+        sort = '.\\assets\\img\\sort.png'
     },
-
-    fontSize = 14,
     font = {
         regular = ui.DWriteFont('Geist', '.\\assets\\font\\Geist-Regular.ttf'):spacing(-0.4, 0, 4),
         medium = ui.DWriteFont('Geist', '.\\assets\\font\\Geist-Medium.ttf')
@@ -87,59 +81,8 @@ end
 ---@param sec number
 ---@return string @Formatted time string (H:MM:SS or MM:SS).
 local function formatTime(hrs, min, sec)
-    if hrs > 0 then
-        return string.format('%d:%02d:%02d', hrs, min, sec)
-    end
+    if hrs > 0 then return string.format('%d:%02d:%02d', hrs, min, sec) end
     return string.format('%d:%02d', min, sec)
-end
-
----@param pos vec2
----@param size vec2
----@param borderColor rgbm
----@param backgroundColor rgbm
----@param rounding number
----@param gap number @gap in between the two interactive areas.
----@param onClickLeft fun()
----@param onClickRight fun()
-local function drawNumericStepper(pos, size, borderColor, backgroundColor, rounding, gap, onClickLeft, onClickRight)
-    local middle = pos.x + size.x * 0.5
-    local buttonColorLeft, buttonColorRight = colors.buttonIdle, colors.buttonIdle
-    local gradientColor = rgbm(0.65, 0.65, 0.65, 0.35)
-
-    local hoveredLeft = ui.rectHovered(pos, vec2(middle - gap, pos.y + size.y))
-    local hoveredRight = ui.rectHovered(vec2(middle + gap, pos.y), vec2(pos.x + size.x, pos.y + size.y))
-
-    if hoveredLeft then
-        buttonColorLeft = colors.buttonActive
-        ui.setMouseCursor(ui.MouseCursor.Hand)
-        if ui.mouseDown(ui.MouseButton.Left) then buttonColorLeft = colors.buttonDown end
-        if ui.mouseReleased(ui.MouseButton.Left) then onClickLeft() end
-
-        ui.beginGradientShade()
-        ui.drawRectFilled(vec2(pos.x, pos.y), vec2(middle + gap, pos.y + size.y), gradientColor, rounding)
-        ui.endGradientShade(vec2(pos.x, pos.y + size.y * 0.5), vec2(middle + gap, pos.y + size.y * 0.5), gradientColor, rgbm(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0), true)
-    end
-
-    if hoveredRight then
-        buttonColorRight = colors.buttonActive
-        ui.setMouseCursor(ui.MouseCursor.Hand)
-        if ui.mouseDown(ui.MouseButton.Left) then buttonColorRight = colors.buttonDown end
-        if ui.mouseReleased(ui.MouseButton.Left) then onClickRight() end
-
-        ui.beginGradientShade()
-        ui.drawRectFilled(vec2(middle - gap, pos.y), vec2(pos.x + size.x, pos.y + size.y), gradientColor, rounding)
-        ui.endGradientShade(vec2(pos.x + size.x, pos.y + size.y * 0.5), vec2(middle - gap, pos.y + size.y * 0.5), gradientColor, rgbm(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0), true)
-    end
-
-    ui.drawRect(pos, pos + size, borderColor, rounding)
-    ui.drawRectFilled(pos, pos + size, backgroundColor, rounding)
-
-    local imgSize = vec2(25, 20)
-    local leftPos = vec2(pos.x + imgSize.x + 5, pos.y + (size.y - imgSize.y) * 0.53 + imgSize.y)
-    local rightPos = vec2(pos.x + size.x - imgSize.x - 5, pos.y + (size.y - imgSize.y) * 0.49)
-
-    ui.drawImage(app.images.scaler, leftPos, leftPos - imgSize, buttonColorLeft)
-    ui.drawImage(app.images.scaler, rightPos, rightPos + imgSize, buttonColorRight)
 end
 
 --#endregion
@@ -160,14 +103,13 @@ local function drawTimeline()
     ui.drawCircleFilled(cursor, 5, colors.timeline.circle)
     ui.drawCircle(cursor, 5, colors.timeline.circleBorder)
 
-    ui.pushDWriteFont(app.font.regular)
-
+    local timeTextSize = 14
     local currentHrs, currentMin, currentSec = timeFromSeconds(math.clampN(replay.frame / replayHz, 0, replay_control.getReplayTotalTime()))
-    ui.dwriteDrawText(formatTime(currentHrs, currentMin, currentSec), app.fontSize, vec2(22, lineStart.y - 10))
-
     local hrs, min, sec = timeFromSeconds(replay_control.getReplayTotalTime())
-    ui.dwriteDrawText(formatTime(hrs, min, sec), app.fontSize, vec2(window.size.x - 60, lineEnd.y - 10))
 
+    ui.pushDWriteFont(app.font.regular)
+    ui.dwriteDrawText(formatTime(currentHrs, currentMin, currentSec), timeTextSize, vec2(22, lineStart.y - 10))
+    ui.dwriteDrawText(formatTime(hrs, min, sec), timeTextSize, vec2(window.size.x - 60, lineEnd.y - 10))
     ui.popDWriteFont()
 
     local timelineWidth = (lineEnd.x - lineStart.x)
@@ -188,6 +130,7 @@ local function drawTimeline()
 end
 
 
+
 local function drawPlaybackButtons(winHalfSize)
     local buttonSize = vec2(35, 35)
 
@@ -204,19 +147,6 @@ local function drawPlaybackButtons(winHalfSize)
         end
     end
 
-
-
-
-
-
-
-
-
-
-
-
-
-
     --stop button
     local isHovered = ui.rectHovered(vec2(455, 100), vec2(445, 90) + buttonSize)
     local color = isHovered and colors.buttonActive or colors.buttonIdle
@@ -232,20 +162,6 @@ local function drawPlaybackButtons(winHalfSize)
     end
 
     ui.drawRectFilled(vec2(455, 100), vec2(445, 90) + buttonSize, color, 1.5)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     --play/pause button
     if replay.play then
@@ -281,8 +197,11 @@ local function drawPlaybackButtons(winHalfSize)
     ]]
 end
 
+
+
 local filename = ''
 local showTextInput = false
+
 local function drawSaveButton()
     local buttonSize = vec2(35, 35)
     local pressedEnter = false
@@ -339,54 +258,109 @@ local function drawSaveButton()
     end
 end
 
+---@param pos vec2
+---@param size vec2
+---@param borderColor rgbm
+---@param backgroundColor rgbm
+---@param rounding number
+---@param cornerFlags? ui.CornerFlags
+---@param borderThickness number
+---@param gap number @Gap in between the interactive areas.
+---@param gradientOpacity number
+---@return boolean hoveredLeft
+---@return boolean hoveredRight
+local function drawStepper(pos, size, borderColor, backgroundColor, rounding, cornerFlags, borderThickness, gap, gradientOpacity)
+    local hoveredLeft, hoveredRight = false, false
+    local middle = pos.x + size.x * 0.5
+
+    if ui.rectHovered(pos, vec2(middle - gap, pos.y + size.y)) then
+        ui.setMouseCursor(ui.MouseCursor.Hand)
+        hoveredLeft = true
+    end
+
+    if ui.rectHovered(vec2(middle + gap, pos.y), vec2(pos.x + size.x, pos.y + size.y)) then
+        ui.setMouseCursor(ui.MouseCursor.Hand)
+        hoveredRight = true
+    end
+
+    ui.drawRectFilled(pos, pos + size, backgroundColor, rounding, cornerFlags)
+
+    if hoveredLeft then
+        ui.beginGradientShade()
+        ui.drawRectFilled(pos, vec2(middle + gap, pos.y + size.y), rgbm(1, 1, 1, gradientOpacity), rounding, cornerFlags)
+        ui.endGradientShade(pos, vec2(middle + gap, pos.y), rgbm(1, 1, 1, 1), rgbm(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0), true)
+    end
+
+    if hoveredRight then
+        ui.beginGradientShade()
+        ui.drawRectFilled(vec2(middle - gap, pos.y), vec2(pos.x + size.x, pos.y + size.y), rgbm(1, 1, 1, gradientOpacity), rounding, cornerFlags)
+        ui.endGradientShade(vec2(middle - gap, pos.y), vec2(pos.x + size.x, pos.y), rgbm(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0), rgbm(1, 1, 1, 1), true)
+    end
+
+    ui.drawRect(pos, pos + size, borderColor, rounding, cornerFlags, borderThickness)
+
+    return hoveredLeft, hoveredRight
+end
+
 local cameras = {
-    [1] = 'Cockpit',
-
-    [2] = 'Chase',
-    [3] = 'Chase2',
-    [4] = 'Bonnet',
-    [5] = 'Bumper',
-    [6] = 'Dash',
-
-    [7] = 'Track',
-    [8] = 'Helicopter',
-    [9] = 'Start',
+    'Cockpit',
+    'Chase',
+    'Chase2',
+    'Bonnet',
+    'Bumper',
+    'Dash',
+    'Track',
+    'Helicopter',
+    'Start',
 }
 
-local cameraMode = sim.cameraMode
+---@param index integer
+local function applyCamera(index)
+    if index >= 2 and index <= 6 then
+        ac.setCurrentCamera(ac.CameraMode.Drivable)
+        ac.setCurrentDrivableCamera(ac.DrivableCamera[cameras[index]])
+    else
+        ac.setCurrentCamera(ac.CameraMode[cameras[index]])
+    end
+end
+
+local cameraIndex = 1
+local cameraTextOpacity = 2
+ac.onReplay(function() cameraTextOpacity = 5 end)
 
 local function drawCameraButtons()
     local pos = vec2(755, 92.5)
     local size = vec2(100, 35)
+    local colorArrowLeft, colorArrowRight = colors.buttonIdle, colors.buttonIdle
 
-    drawNumericStepper(pos, size, colors.stepper.border, colors.stepper.background, 6, 15, function ()
-        cameraMode = (cameraMode - 2) % #cameras + 1
-        if cameraMode >= 2 and cameraMode <= 6 then
-            ac.setCurrentCamera(ac.CameraMode.Drivable)
-            ac.setCurrentDrivableCamera(ac.DrivableCamera[cameras[cameraMode]])
-        else
-            ac.setCurrentCamera(ac.CameraMode[cameras[cameraMode]])
-        end
-    end, function ()
-        cameraMode = cameraMode % #cameras + 1
-        if cameraMode >= 2 and cameraMode <= 6 then
-            ac.setCurrentCamera(ac.CameraMode.Drivable)
-            ac.setCurrentDrivableCamera(ac.DrivableCamera[cameras[cameraMode]])
-        else
-            ac.setCurrentCamera(ac.CameraMode[cameras[cameraMode]])
-        end
-    end)
+    local hoveredLeft, hoveredRight = drawStepper(pos, size, colors.stepper.border, colors.stepper.background, 6, nil, 1, 15, 0.15)
 
-    local alignment = cameraMode == 1 and 1.5 or 0
+    if hoveredLeft or hoveredRight then
+        local color = ui.mouseDown(ui.MouseButton.Left) and colors.buttonDown or colors.buttonActive
+
+        if hoveredLeft then colorArrowLeft = color else colorArrowRight = color end
+
+        if ui.mouseReleased(ui.MouseButton.Left) then
+            cameraIndex = (cameraIndex - 1 + (hoveredLeft and -1 or 1)) % #cameras + 1
+            cameraTextOpacity = 5
+            applyCamera(cameraIndex)
+        end
+    end
+
+    ui.drawImage(app.images.sort, vec2(pos.x + 5, pos.y + 8), vec2(pos.x + size.x * 0.5 - 20, pos.y + size.y - 8), colorArrowLeft, vec2(0, 0), vec2(0.5, 1))
+    ui.drawImage(app.images.sort, vec2(pos.x + size.x * 0.5 + 20, pos.y + 8), vec2(pos.x + size.x - 5, pos.y + size.y - 8), colorArrowRight, vec2(0.5, 0), vec2(1, 1))
+
+    local cameraTextSize = 14
+    local textSize = ui.measureDWriteText('Helicopter', cameraTextSize)
+    local alignment = cameraIndex == 1 and 1.5 or 0
 
     ui.pushDWriteFont(app.font.medium)
-    ui.dwriteDrawText(cameraMode, app.fontSize + 2, vec2(800 + alignment, 100))
+    ui.dwriteDrawText(tostring(cameraIndex), cameraTextSize + 2, vec2(800 + alignment, 100))
     ui.popDWriteFont()
 
     ui.setCursor(vec2(773, 135))
     ui.pushDWriteFont(app.font.regular)
-    local textSize = ui.measureDWriteText('Helicopter', app.fontSize)
-    ui.dwriteTextAligned(cameras[cameraMode], app.fontSize, ui.Alignment.Center, ui.Alignment.Start, textSize)
+    ui.dwriteTextAligned(cameras[cameraIndex], cameraTextSize, ui.Alignment.Center, ui.Alignment.Start, textSize, false, rgbm(0.92, 0.91, 0.9, cameraTextOpacity))
     ui.popDWriteFont()
 end
 
@@ -411,6 +385,8 @@ ui.onExclusiveHUD(function(mode)
 end)
 
 function script.update(dt)
+    cameraTextOpacity = cameraTextOpacity - dt
+
     replay.length = replay_control.getReplayTotalTime()
 
     if replay.frame >= sim.replayFrames then

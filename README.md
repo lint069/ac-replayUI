@@ -13,6 +13,7 @@ Icons are from [The Noun Project](https://thenounproject.com/) all Licensed unde
 - **pause** icon by `Chintuza`
 - **exit** icon by `ststltn`
 - **save** icon based on icons by `Larea` & `Styfico`
+- **sort** icon by `iconzbox`
 
 ## Kudos
 Big thanks to [Ilja](https://github.com/gro-ove) for providing the lua SDK and for taking my feature requests into consideration.
