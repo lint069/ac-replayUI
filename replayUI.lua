@@ -1,9 +1,11 @@
+---@diagnostic disable: lowercase-global
 
-local replay_control = require 'shared/ui/replay'
 require 'stepper'
+local replay_control = require 'shared/ui/replay'
 
 local settings = ac.storage {
     useCustomFolders = true,
+    excludeAIFromCarList = true,
 }
 
 local replay = {
@@ -11,29 +13,28 @@ local replay = {
     rewind = false,
     frame = 0,
     length = 0, --in seconds
-    speed = 1
+    speed = 1,
 }
 
 local window = {
     position = vec2(),
-    size = vec2()
+    size = vec2(),
 }
 
 local colors = {
     buttonIdle = rgbm(0.78, 0.77, 0.76, 1),
-    buttonActive = rgbm(0.92, 0.91, 0.9, 1),
-    buttonDown = rgbm(1, 0.99, 0.98, 1),
-    buttonExitHovered = rgbm(0.96, 0.17, 0.23, 1),
+    buttonHovered = rgbm(0.95, 0.94, 0.93, 1),
+    buttonExitHovered = rgbm(0.97, 0.13, 0.23, 1),
     timeline = {
         unplayed = rgbm(0.3, 0.3, 0.3, 1),
-        played = rgbm(0.9, 0.9, 0.9, 1),
+        played = rgbm(0.85, 0.85, 0.85, 1),
         circle = rgbm(0.9, 0.9, 0.9, 1),
-        circleBorder = rgbm(0.95, 0.95, 0.95, 0.95)
+        circleBorder = rgbm(0.95, 0.95, 0.95, 0.95),
     },
     stepper = {
         background = rgbm(0.5, 0.5, 0.5, 0.1),
-        border = rgbm(1, 1, 1, 0.5)
-    }
+        border = rgbm(1, 1, 1, 0.5),
+    },
 }
 
 local app = {
@@ -42,12 +43,13 @@ local app = {
         exit = '.\\assets\\img\\exit.png',
         seek = '.\\assets\\img\\seek.png',
         save = '.\\assets\\img\\save.png',
-        sort = '.\\assets\\img\\sort.png'
+        sort = '.\\assets\\img\\sort.png',
+        stop = '.\\assets\\img\\stop.png',
     },
     font = {
         regular = ui.DWriteFont('Geist', '.\\assets\\font\\Geist-Regular.ttf'):spacing(-0.4, 0, 4),
-        medium = ui.DWriteFont('Geist', '.\\assets\\font\\Geist-Medium.ttf')
-    }
+        medium = ui.DWriteFont('Geist', '.\\assets\\font\\Geist-Medium.ttf'),
+    },
 }
 
 local replayQualityPresets = {
@@ -59,10 +61,6 @@ local replayQualityPresets = {
 }
 
 local sim = ac.getSim()
-
-local replayConfigIni = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. '/replay.ini', ac.INIFormat.Extended)
-local replayQuality = replayConfigIni:get('QUALITY', 'LEVEL', 3)
-local replayHz = replayQualityPresets[replayQuality]
 
 --#region helper functions
 
@@ -91,6 +89,10 @@ end
 --#region drawing functions
 
 local padding = vec2(4, 7)
+local replayConfig = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. '/replay.ini', ac.INIFormat.Extended)
+local replayQuality = replayConfig:get('QUALITY', 'LEVEL', 3)
+local replayHz = replayQualityPresets[replayQuality]
+
 local function drawTimeline()
     local progress = replay.frame / sim.replayFrames
     local lineStart = vec2(80, 60)
@@ -104,13 +106,19 @@ local function drawTimeline()
     ui.drawCircleFilled(cursor, 5, colors.timeline.circle)
     ui.drawCircle(cursor, 5, colors.timeline.circleBorder)
 
-    local timeTextSize = 14
-    local currentHrs, currentMin, currentSec = timeFromSeconds(math.clampN(replay.frame / replayHz, 0, replay_control.getReplayTotalTime()))
-    local hrs, min, sec = timeFromSeconds(replay_control.getReplayTotalTime())
+    local timeFontSize = 14
+    local timeTextSize = ui.measureDWriteText('00:00:00', timeFontSize)
+    local currentHrs, currentMin, currentSec = timeFromSeconds(math.clampN(replay.frame / replayHz, 0, replay.length))
+    local hrs, min, sec = timeFromSeconds(replay.length)
 
     ui.pushDWriteFont(app.font.regular)
-    ui.dwriteDrawText(formatTime(currentHrs, currentMin, currentSec), timeTextSize, vec2(22, lineStart.y - 10))
-    ui.dwriteDrawText(formatTime(hrs, min, sec), timeTextSize, vec2(window.size.x - 60, lineEnd.y - 10))
+
+    ui.setCursor(vec2(lineStart.x - 65, lineStart.y - 9))
+    ui.dwriteTextAligned(formatTime(currentHrs, currentMin, currentSec), timeFontSize, ui.Alignment.Center, ui.Alignment.Start, timeTextSize)
+
+    ui.setCursor(vec2(lineEnd.x + 15, lineEnd.y - 9))
+    ui.dwriteTextAligned(formatTime(hrs, min, sec), timeFontSize, ui.Alignment.Center, ui.Alignment.Start, timeTextSize)
+
     ui.popDWriteFont()
 
     local timelineWidth = (lineEnd.x - lineStart.x)
@@ -130,75 +138,23 @@ local function drawTimeline()
     end
 end
 
+---@param y number y-position
+local function drawExitButton(y)
+    local size = 40
+    local pos = vec2(175, y + (50 - size) * 0.5)
 
+    local hovered = ui.rectHovered(pos, pos + size)
+    local color = hovered and colors.buttonExitHovered or colors.buttonIdle
 
-local function drawPlaybackButtons(winHalfSize)
-    local buttonSize = vec2(35, 35)
+    ui.drawImage(app.images.exit, pos, pos + size, color)
 
-    --exit button
-    local isHovered = ui.rectHovered(vec2(50, 95), vec2(50, 95) + buttonSize)
-    local color = isHovered and colors.buttonExitHovered or colors.buttonIdle
-
-    ui.drawImage(app.images.exit, vec2(50, 95), vec2(50, 95) + buttonSize, color)
-
-    if isHovered then
+    if hovered then
         ui.setMouseCursor(ui.MouseCursor.Hand)
         if ui.mouseReleased(ui.MouseButton.Left) then
             ac.tryToToggleReplay(false)
         end
     end
-
-    --stop button
-    local isHovered = ui.rectHovered(vec2(455, 100), vec2(445, 90) + buttonSize)
-    local color = isHovered and colors.buttonActive or colors.buttonIdle
-
-    if isHovered then
-        ui.setMouseCursor(ui.MouseCursor.Hand)
-
-        if ui.mouseClicked(ui.MouseButton.Left) then
-            replay.play = false
-            replay.frame = 0
-            ac.setReplayPosition(replay.frame, 1)
-        end
-    end
-
-    ui.drawRectFilled(vec2(455, 100), vec2(445, 90) + buttonSize, color, 1.5)
-
-    --play/pause button
-    if replay.play then
-        ui.drawImage(app.images.playpause, vec2(winHalfSize - 15, 95), vec2(winHalfSize + 15, 125), colors.buttonActive, vec2(2 / 2, 0), vec2(1 / 2, 1))
-    else
-        ui.drawImage(app.images.playpause, vec2(winHalfSize - 15, 95), vec2(winHalfSize + 15, 125), colors.buttonActive, vec2(0 / 2, 0), vec2(1 / 2, 1))
-    end
-
-    if ui.rectHovered(vec2(winHalfSize - 15, 95), vec2(winHalfSize + 15, 125)) then
-        ui.setMouseCursor(ui.MouseCursor.Hand)
-
-        if ui.mouseClicked(ui.MouseButton.Left) then
-            replay.speed = 1
-            replay.play = not replay.play
-        end
-    end
-
-    --seek buttons
-    ui.drawImage(app.images.seek, vec2(winHalfSize - 50, 92.5), vec2(winHalfSize - 80, 127.5), colors.buttonActive)
-    ui.drawImage(app.images.seek, vec2(winHalfSize + 50, 92.5), vec2(winHalfSize + 80, 127.5), colors.buttonActive)
-
-    --[[
-    if ui.button('x Fast Forward', vec2()) then
-        replay.speed = replay.speed + 1
-        replay.play = true
-    end
-
-    if ui.button('x Rewind', vec2()) then
-        replay.speed = replay.speed - 1
-        replay.rewind = true
-        replay.play = true
-    end
-    ]]
 end
-
-
 
 local filename = ''
 local showTextInput = false
@@ -213,12 +169,12 @@ local function drawSaveButton()
     replayName = replayName:gsub("%s+", "-")
 
     local isHovered = ui.rectHovered(vec2(300, 95), vec2(300, 95) + buttonSize)
-    local color = (isHovered or showTextInput) and colors.buttonActive or colors.buttonIdle
+    local color = (isHovered or showTextInput) and colors.buttonHovered or colors.buttonIdle
 
     if isHovered then
         ui.setMouseCursor(ui.MouseCursor.Hand)
 
-        if ui.mouseClicked(ui.MouseButton.Left) then
+        if ui.mouseReleased(ui.MouseButton.Left) then
             showTextInput = not showTextInput
             if showTextInput then filename = replayName end
         end
@@ -259,29 +215,82 @@ local function drawSaveButton()
     end
 end
 
+
+
+
+local function drawPlaybackButtons(winHalfSize)
+    local buttonSize = vec2(35, 35)
+
+    --stop button
+    local isHovered = ui.rectHovered(vec2(455, 100), vec2(445, 90) + buttonSize)
+    local color = isHovered and colors.buttonHovered or colors.buttonIdle
+
+    if isHovered then
+        ui.setMouseCursor(ui.MouseCursor.Hand)
+
+        if ui.mouseReleased(ui.MouseButton.Left) then
+            replay.play = false
+            replay.frame = 0
+            ac.setReplayPosition(replay.frame, 1)
+        end
+    end
+
+    ui.drawImage(app.images.stop, vec2(455, 100), vec2(445, 90) + buttonSize, color)
+
+    --play/pause button
+    if replay.play then
+        ui.drawImage(app.images.playpause, vec2(winHalfSize - 15, 95), vec2(winHalfSize + 15, 125), colors.buttonHovered, vec2(2 / 2, 0), vec2(1 / 2, 1))
+    else
+        ui.drawImage(app.images.playpause, vec2(winHalfSize - 15, 95), vec2(winHalfSize + 15, 125), colors.buttonHovered, vec2(0 / 2, 0), vec2(1 / 2, 1))
+    end
+
+    if ui.rectHovered(vec2(winHalfSize - 15, 95), vec2(winHalfSize + 15, 125)) then
+        ui.setMouseCursor(ui.MouseCursor.Hand)
+
+        if ui.mouseReleased(ui.MouseButton.Left) then
+            replay.speed = 1
+            replay.play = not replay.play
+        end
+    end
+
+    --seek buttons
+    ui.drawImage(app.images.seek, vec2(winHalfSize - 50, 92.5), vec2(winHalfSize - 80, 127.5), colors.buttonHovered)
+    ui.drawImage(app.images.seek, vec2(winHalfSize + 50, 92.5), vec2(winHalfSize + 80, 127.5), colors.buttonHovered)
+
+    --[[
+        replay.speed = +2
+        replay.speed = -2
+    ]]
+end
+
+
+
+
 local cameras = {
-    'Cockpit',
-    'Chase',
-    'Chase2',
-    'Bonnet',
-    'Bumper',
-    'Dash',
-    'Helicopter',
+    { type = 'Cockpit', label = 'Cockpit' },
+    { type = 'Chase', label = 'Chase' },
+    { type = 'Chase2', label = 'Chase 2' },
+    { type = 'Bonnet', label = 'Bonnet' },
+    { type = 'Bumper', label = 'Bumper' },
+    { type = 'Dash', label = 'Dash' },
+    { type = 'Helicopter', label = 'Helicopter' },
 }
 
-local totalTrackCameras = sim.trackCamerasSetsCount
 local cameraIndex = 1
-local cameraTextOpacity = 2
-ac.onReplay(function() cameraTextOpacity = 5 end)
+local cameraTextOpacity = 0
 
-table.insert(cameras, 7, totalTrackCameras) --!
-ac.debug('ta', cameras) --!
+ac.onReplay(function(event) if event ~= 'start' then return end cameraTextOpacity = 5 end)
+
+local totalTrackCameras = sim.trackCamerasSetsCount
+for i = 0, totalTrackCameras - 1 do
+    cameras[#cameras + 1] = {index = i, label = 'Track ' .. (i + 1)}
+end
 
 local function drawCameraButton()
-    local pos = vec2(755, 92.5)
+    local pos = vec2(755, 93)
     local size = vec2(100, 35)
 
-    local hoveredLeft, hoveredRight = drawNumericStepper(pos, size, colors.stepper.border, colors.stepper.background, 1, 15, 0.15, 6)
+    local hoveredLeft, hoveredRight = drawNumericStepper(pos, size, colors.stepper.border, colors.stepper.background, 1, 0.15, 6)
 
     if hoveredLeft or hoveredRight then
         if ui.mouseReleased(ui.MouseButton.Left) then
@@ -291,31 +300,29 @@ local function drawCameraButton()
 
             if cameraIndex >= 2 and cameraIndex <= 6 then
                 ac.setCurrentCamera(ac.CameraMode.Drivable)
-                ac.setCurrentDrivableCamera(ac.DrivableCamera[cameras[cameraIndex]])
-            elseif cameraIndex >= 7 then
+                ac.setCurrentDrivableCamera(ac.DrivableCamera[cameras[cameraIndex].type])
+            elseif cameraIndex >= 8 then
                 ac.setCurrentCamera(ac.CameraMode.Track)
-                ac.setCurrentTrackCamera(1)
+                ac.setCurrentTrackCamera(cameras[cameraIndex].index)
             else
-                ac.setCurrentCamera(ac.CameraMode[cameras[cameraIndex]])
+                ac.setCurrentCamera(ac.CameraMode[cameras[cameraIndex].type])
             end
         end
     end
 
-    local cameraTextSize = 14
-    local textSize = ui.measureDWriteText('Helicopter', cameraTextSize)
-    local alignment = cameraIndex == 1 and 1.5 or 0
+    local cameraFontSize, numberFontSize = 14, 17
+    local cameraTextSize = ui.measureDWriteText('Helicopter', cameraFontSize)
+    local numberTextSize = ui.measureDWriteText('00', numberFontSize)
 
+    ui.setCursor(vec2(796, 99))
     ui.pushDWriteFont(app.font.medium)
-    ui.dwriteDrawText(tostring(cameraIndex), cameraTextSize + 2, vec2(800 + alignment, 100))
+    ui.dwriteTextAligned(tostring(cameraIndex), numberFontSize, ui.Alignment.Center, ui.Alignment.Start, numberTextSize)
     ui.popDWriteFont()
 
-    ui.setCursor(vec2(773, 135))
+    ui.setCursor(vec2(773, 134))
     ui.pushDWriteFont(app.font.regular)
-    ui.dwriteTextAligned(cameras[cameraIndex], cameraTextSize, ui.Alignment.Center, ui.Alignment.Start, textSize, false, rgbm(0.92, 0.91, 0.9, cameraTextOpacity))
+    ui.dwriteTextAligned(cameras[cameraIndex].label, cameraFontSize, ui.Alignment.Center, ui.Alignment.Start, cameraTextSize, false, rgbm(0.92, 0.91, 0.9, cameraTextOpacity))
     ui.popDWriteFont()
-end
-
-local function drawCarButton()
 end
 
 --#endregion
@@ -327,11 +334,14 @@ ui.onExclusiveHUD(function(mode)
         window.size = vec2(1200, 130 + 30)
         window.position = vec2((sim.windowSize.x / 2) - (window.size.x / 2), (sim.windowSize.y - 180) - (window.size.y / 2))
 
-        ui.drawRectFilled(vec2(0, 30), window.size, rgbm(0, 0, 0, 0.3), 8, ui.CornerFlags.Top)
+        ui.drawRectFilled(vec2(0, 30), window.size, rgbm(0, 0, 0, 0.4), 8, ui.CornerFlags.Top)
 
         local winHalfSize = ui.windowWidth() / 2
+        local buttonRow = (ui.windowHeight() / 2) + 5
 
         drawTimeline()
+
+        drawExitButton(buttonRow)
         drawPlaybackButtons(winHalfSize)
         drawSaveButton()
         drawCameraButton()

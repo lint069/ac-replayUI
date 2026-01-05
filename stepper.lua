@@ -9,16 +9,16 @@ local colorMouseDown = rgbm(1, 0.99, 0.98, 1)
 ---@param borderColor rgbm
 ---@param backgroundColor rgbm
 ---@param borderThickness number
----@param gap number @Gap in between the interactive areas.
 ---@param gradientOpacity number
 ---@param rounding? number @Default value: 0.
 ---@param cornerFlags? ui.CornerFlags @Default value: `ui.CornerFlags.All`.
 ---@return boolean hoveredLeft
 ---@return boolean hoveredRight
-function drawNumericStepper(pos, size, borderColor, backgroundColor, borderThickness, gap, gradientOpacity, rounding, cornerFlags)
+function drawNumericStepper(pos, size, borderColor, backgroundColor, borderThickness, gradientOpacity, rounding, cornerFlags)
     local colorLeft, colorRight = colorIdle, colorIdle
     local hoveredLeft, hoveredRight = false, false
     local middle = pos.x + size.x * 0.5
+    local gap = size.x / 6
 
     if ui.rectHovered(pos, vec2(middle - gap, pos.y + size.y)) then hoveredLeft = true end
     if ui.rectHovered(vec2(middle + gap, pos.y), vec2(pos.x + size.x, pos.y + size.y)) then hoveredRight = true end
@@ -50,8 +50,15 @@ function drawNumericStepper(pos, size, borderColor, backgroundColor, borderThick
         ui.endGradientShade(vec2(middle - gap, pos.y), vec2(pos.x + size.x, pos.y), rgbm(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0), rgbm(1, 1, 1, 1), true)
     end
 
-    ui.drawImage('./assets/img/sort.png', vec2(pos.x + 5, pos.y + 8.5), vec2(pos.x + size.x * 0.5 - 23, pos.y + size.y - 8.5), colorLeft, vec2(0, 0), vec2(0.5, 1))
-    ui.drawImage('./assets/img/sort.png', vec2(pos.x + size.x * 0.5 + 23, pos.y + 8.5), vec2(pos.x + size.x - 5, pos.y + size.y - 8.5), colorRight, vec2(0.5, 0), vec2(1, 1))
+    local imageWidth, imageHeight = 30, 27
+    local arrowHeight = size.y - 17
+    local arrowWidth = imageWidth / imageHeight * arrowHeight
+
+    local leftPos = vec2(pos.x + 5, pos.y + 8.5)
+    local rightPos = vec2(pos.x + size.x - 5 - arrowWidth, pos.y + 8.5)
+
+    ui.drawImage('./assets/img/sort.png', leftPos, leftPos + vec2(arrowWidth, arrowHeight), colorLeft, vec2(0, 0), vec2(0.5, 1))
+    ui.drawImage('./assets/img/sort.png', rightPos, rightPos + vec2(arrowWidth, arrowHeight), colorRight, vec2(0.5, 0), vec2(1, 1))
 
     return hoveredLeft, hoveredRight
 end
